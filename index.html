@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>METEORA — Radar meteorológico</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#07111f;color:#f5f9ff;font-family:Inter,system-ui,sans-serif}
+header{height:70px;display:flex;align-items:center;gap:14px;padding:10px 18px;background:#091827;border-bottom:1px solid #233b55;position:relative;z-index:1000}
+.logo{font-size:24px;font-weight:900}.logo span{color:#55c7ff}.search{display:flex;gap:8px;flex:1;max-width:500px}.search input{width:100%;background:#10243a;border:1px solid #34506d;color:white;padding:11px 14px;border-radius:11px;outline:0}.btn{border:0;border-radius:11px;padding:11px 14px;font-weight:800;cursor:pointer;background:#59c8ff;color:#03111d}.layout{height:calc(100vh - 70px);display:grid;grid-template-columns:330px 1fr}.side{padding:18px;overflow:auto;background:#091827;border-right:1px solid #233b55}.card{background:#102238;border:1px solid #28415e;border-radius:18px;padding:18px;margin-bottom:14px}.place{color:#9db4cc}.temp{font-size:58px;font-weight:900;letter-spacing:-4px}.condition{font-size:18px}.stats{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}.stat b{display:block;font-size:18px}.stat small{color:#91a9c1}.mapwrap{position:relative}.map{height:100%;width:100%;background:#122337}.controls{position:absolute;z-index:900;right:15px;top:15px;display:flex;flex-direction:column;gap:8px}.controls button{background:#102238;color:white;border:1px solid #45627e;padding:10px 12px;border-radius:10px;cursor:pointer;font-weight:700}.legend{position:absolute;z-index:900;left:15px;bottom:18px;background:#0b1a2bdf;padding:12px 14px;border-radius:12px;border:1px solid #38536e;font-size:12px}.grad{width:190px;height:10px;margin-top:7px;background:linear-gradient(90deg,#39a0ff,#38e16f,#ffe033,#ff7b21,#e62c54)}.range{width:100%;accent-color:#55c7ff}.time{display:flex;justify-content:space-between;color:#9fb5cb;font-size:12px}.status{font-size:12px;color:#829ab2;margin-top:12px}.error{color:#ff9b9b}@media(max-width:800px){.layout{grid-template-columns:1fr;height:auto}.side{border-right:0}.mapwrap{height:65vh}.search{max-width:none}.logo{font-size:19px}header{flex-wrap:wrap;height:auto}.layout{height:auto}}
+</style>
+</head>
+<body>
+<header>
+<div class="logo">METE<span>ORA</span></div>
+<div class="search"><input id="city" value="Madrid" placeholder="Buscar ciudad..."><button class="btn" onclick="searchCity()">Buscar</button></div>
+<button class="btn" onclick="locate()">📍</button>
+</header>
+<div class="layout">
+<aside class="side">
+<div class="card">
+<div class="place" id="place">Cargando...</div>
+<div class="temp" id="temp">--°</div><div class="condition" id="condition">--</div>
+<div class="stats">
+<div class="stat"><b id="feel">--°</b><small>Sensación</small></div>
+<div class="stat"><b id="humidity">--%</b><small>Humedad</small></div>
+<div class="stat"><b id="wind">-- km/h</b><small>Viento</small></div>
+<div class="stat"><b id="rain">--%</b><small>Lluvia</small></div>
+</div><div class="status" id="status">Cargando datos...</div>
+</div>
+<div class="card">
+<b>Radar de precipitaciones</b>
+<p style="color:#9db4cc;font-size:13px">Activa o desactiva la capa de lluvia del mapa.</p>
+<label><input type="checkbox" id="radar" checked onchange="toggleRadar()"> Radar de lluvia</label>
+<div style="margin-top:15px"><b>Animación</b><input class="range" id="opacity" type="range" min="0" max="100" value="70" oninput="setOpacity(this.value)"><div class="time"><span>Menos</span><span id="opv">70%</span><span>Más</span></div></div>
+</div>
+<div class="card"><b>Capas</b><p style="color:#9db4cc;font-size:13px;margin-bottom:8px">Usa los botones del mapa para centrarte y cambiar el zoom.</p></div>
+</aside>
+<section class="mapwrap"><div id="map" class="map"></div>
+<div class="controls"><button onclick="map.setZoom(map.getZoom()+1)">＋</button><button onclick="map.setZoom(map.getZoom()-1)">−</button><button onclick="locate()">📍 Mi ubicación</button></div>
+<div class="legend">Intensidad de precipitación<div class="grad"></div><div style="display:flex;justify-content:space-between;margin-top:4px"><span>Débil</span><span>Fuerte</span></div></div>
+</section>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const WMO={0:["Despejado","☀️"],1:["Mayormente despejado","🌤️"],2:["Parcialmente nublado","⛅"],3:["Nublado","☁️"],45:["Niebla","🌫️"],48:["Niebla","🌫️"],51:["Llovizna","🌦️"],53:["Llovizna","🌦️"],55:["Llovizna intensa","🌧️"],61:["Lluvia ligera","🌦️"],63:["Lluvia","🌧️"],65:["Lluvia intensa","🌧️"],71:["Nieve","🌨️"],73:["Nieve","❄️"],75:["Nieve intensa","❄️"],80:["Chubascos","🌦️"],81:["Chubascos","🌧️"],82:["Chubascos intensos","⛈️"],95:["Tormenta","⛈️"],96:["Tormenta con granizo","⛈️"],99:["Tormenta fuerte","⛈️"]};
+const info=c=>WMO[c]||["Tiempo variable","🌡️"];
+const map=L.map("map").setView([40.4168,-3.7038],6);
+const base=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+let radarLayer;
+function radarUrl(){return "https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=YOUR_OPENWEATHER_API_KEY"}
+/* Radar funcional sin clave mediante RainViewer: */
+let frames=[],frameIndex=0,radarTimer;
+async function loadRadar(){
+ try{
+  const r=await fetch("https://api.rainviewer.com/public/weather-maps.json"); const d=await r.json();
+  frames=(d.radar?.past||[]).slice(-8);
+  showFrame(frames.length-1);
+ }catch(e){document.getElementById("status").textContent="Radar no disponible en este momento."}
+}
+function showFrame(i){if(!frames.length)return;frameIndex=i;const f=frames[i];if(radarLayer)map.removeLayer(radarLayer);radarLayer=L.tileLayer("https://tilecache.rainviewer.com"+f.path+"/256/{z}/{x}/{y}/2/1_1.png",{opacity:+opacity.value/100,tileSize:256,zIndex:400}).addTo(map)}
+function toggleRadar(){if(radar.checked){if(frames.length)showFrame(frameIndex);else loadRadar()}else if(radarLayer){map.removeLayer(radarLayer)}}
+function setOpacity(v){opv.textContent=v+"%";if(radarLayer)radarLayer.setOpacity(v/100)}
+async function geocode(q){let r=await fetch("https://geocoding-api.open-meteo.com/v1/search?name="+encodeURIComponent(q)+"&count=1&language=es&format=json");let d=await r.json();if(!d.results?.length)throw Error("Ciudad no encontrada");return d.results[0]}
+async function weather(lat,lon,name){let r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m&timezone=auto`);let d=await r.json(),c=d.current,x=info(c.weather_code);place.textContent=name;temp.textContent=Math.round(c.temperature_2m)+"°";condition.textContent=x[1]+" "+x[0];feel.textContent=Math.round(c.apparent_temperature)+"°";humidity.textContent=c.relative_humidity_2m+"%";wind.textContent=Math.round(c.wind_speed_10m)+" km/h";rain.textContent=c.precipitation+" mm";status.textContent="Actualizado "+new Date().toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});map.setView([lat,lon],8);L.marker([lat,lon]).addTo(map).bindPopup(name).openPopup()}
+async function searchCity(){try{status.textContent="Buscando...";let g=await geocode(city.value);weather(g.latitude,g.longitude,`${g.name}, ${g.country}`)}catch(e){status.innerHTML='<span class="error">'+e.message+"</span>"}}
+function locate(){navigator.geolocation?.getCurrentPosition(p=>weather(p.coords.latitude,p.coords.longitude,"Mi ubicación"),()=>status.textContent="No se pudo obtener la ubicación.")}
+city.addEventListener("keydown",e=>{if(e.key==="Enter")searchCity()});loadRadar();searchCity();
+</script>
+</body></html>
