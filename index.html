@@ -52,7 +52,7 @@ main{max-width:1500px;margin:auto;padding:18px}.layout{display:grid;grid-templat
 <section>
 <div class="card mapcard">
 <div id="map" class="map"></div>
-<div class="maptop"><div class="layerbox"><button id="rainLayerBtn" class="active" onclick="setLayer('rain')">🌧️ Radar</button><button onclick="setLayer('cloud')">☁️ Nubes</button><button onclick="setLayer('temp')">🌡️ Temperatura</button><button onclick="setLayer('normal')">🗺️ Mapa</button></div><div class="mapbuttons"><button onclick="locate()">📍</button><button onclick="map.setZoom(map.getZoom()+1)">＋</button><button onclick="map.setZoom(map.getZoom()-1)">−</button></div></div>
+<div class="maptop"><div class="layerbox"><button id="rainLayerBtn" class="active" onclick="setLayer('rain',this)">🌧️ Radar</button><button onclick="setLayer('cloud',this)">☁️ Nubes</button><button onclick="setLayer('temp',this)">🌡️ Temperatura</button><button onclick="setLayer('normal',this)">🗺️ Mapa</button></div><div class="mapbuttons"><button onclick="locate()">📍</button><button onclick="map.setZoom(map.getZoom()+1)">＋</button><button onclick="map.setZoom(map.getZoom()-1)">−</button></div></div>
 <div class="timeline"><input id="frame" type="range" min="0" max="0" value="0" oninput="showFrame(+this.value)"><div class="timeinfo"><span id="told">--</span><b id="tnow">RADAR</b><span id="tnew">--</span></div><div class="radarstate" id="radarstate">Cargando radar...</div></div>
 </div>
 <div class="bottom">
@@ -81,9 +81,56 @@ async function searchCity(){try{let g=await geocode(city.value);await weather(g.
 function locate(){navigator.geolocation?.getCurrentPosition(p=>weather(p.coords.latitude,p.coords.longitude,"Mi ubicación"),()=>toast("No se pudo obtener la ubicación"))}
 function saveCurrent(){if(!D)return;let a=JSON.parse(localStorage.getItem("meteoraFav")||"[]");if(!a.some(x=>x.name===D.name))a.push({name:D.name,lat:D.lat,lon:D.lon});localStorage.setItem("meteoraFav",JSON.stringify(a));renderFav();toast("Ciudad guardada ⭐")}
 function renderFav(){let a=JSON.parse(localStorage.getItem("meteoraFav")||"[]");favorites.innerHTML=a.map(x=>`<button class="fav" onclick="weather(${x.lat},${x.lon},'${x.name.replace(/'/g,"\\'")}')">⭐ ${x.name}</button>`).join("")}
-async function loadRadar(){try{let r=await fetch("https://api.rainviewer.com/public/weather-maps.json");let d=await r.json();frames=[...(d.radar?.past||[]),...(d.radar?.nowcast||[])];frame.max=Math.max(0,frames.length-1);document.getElementById("frame").max=Math.max(0,frames.length-1);told.textContent=frames.length?new Date(frames[0].time*1000).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"}):"--";tnew.textContent=frames.length?new Date(frames.at(-1).time*1000).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"}):"--";showFrame(frames.length-1);radarstate.textContent="Radar actualizado · RainViewer"}catch(e){radarstate.textContent="Radar temporalmente no disponible"}}
+async function loadRadar(){try{let r=await fetch("https://api.rainviewer.com/public/weather-maps.json");let d=await r.json();frames=[...(d.radar?.past||[]),...(d.radar?.nowcast||[])];frame.max=Math.max(0,frames.length-1);document.getElementById("frame").max=Math.max(0,frames.length-1);told.textContent=frames.length?new Date(frames[0].time*1000).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"}):"--";tnew.textContent=frames.length?new Date(frames.at(-1).time*1000).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"}):"--";frame.value=Math.max(0,frames.length-1);showFrame(Math.max(0,frames.length-1));radarstate.textContent="Radar actualizado · RainViewer"}catch(e){radarstate.textContent="Radar temporalmente no disponible"}}
 function showFrame(i){if(!frames[i])return;if(rainLayer)map.removeLayer(rainLayer);rainLayer=L.tileLayer("https://tilecache.rainviewer.com"+frames[i].path+"/256/{z}/{x}/{y}/2/1_1.png",{opacity:.73,tileSize:256,zIndex:400}).addTo(map);tnow.textContent=new Date(frames[i].time*1000).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})+" · RADAR";frame.value=i}
-function setLayer(type){document.querySelectorAll(".layerbox button").forEach(b=>b.classList.remove("active"));event.target.classList.add("active");if(type==="rain"){if(!rainLayer&&frames.length)showFrame(+frame.value);if(rainLayer)rainLayer.setOpacity(.73)}else if(type==="normal"){if(rainLayer)rainLayer.setOpacity(0)}else{toast("Capa "+type+" preparada para fuentes adicionales.")}}
+function makeOverlay(type){
+  if(type==="rain"){
+    return frames.length ? L.tileLayer("https://tilecache.rainviewer.com"+frames[+frame.value].path+"/256/{z}/{x}/{y}/2/1_1.png",{opacity:.75,tileSize:256,zIndex:500}) : null;
+  }
+  if(type==="cloud"){
+    return L.tileLayer("https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=demo",{opacity:.55,tileSize:256,zIndex:450});
+  }
+  if(type==="temp"){
+    return L.tileLayer("https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=demo",{opacity:.55,tileSize:256,zIndex:450});
+  }
+  return null;
+}
+let activeOverlay=null, activeType="rain";
+function clearOverlay(){
+  if(activeOverlay){map.removeLayer(activeOverlay);activeOverlay=null}
+}
+function setLayer(type,btn){
+  document.querySelectorAll(".layerbox button").forEach(b=>b.classList.remove("active"));
+  btn.classList.add("active");
+  clearOverlay();
+  activeType=type;
+  if(type==="normal"){radarstate.textContent="Mapa base activo";return}
+  if(type==="rain"){
+    if(!frames.length){radarstate.textContent="Cargando radar...";return}
+    const f=frames[+frame.value];
+    activeOverlay=L.tileLayer("https://tilecache.rainviewer.com"+f.path+"/256/{z}/{x}/{y}/2/1_1.png",{opacity:.75,tileSize:256,zIndex:500}).addTo(map);
+    radarstate.textContent="Radar de lluvia · "+new Date(f.time*1000).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+    return;
+  }
+  if(type==="cloud"){
+    activeOverlay=L.tileLayer("https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=demo",{opacity:.55,tileSize:256,zIndex:450}).addTo(map);
+    radarstate.textContent="Capa de nubosidad";
+    return;
+  }
+  if(type==="temp"){
+    activeOverlay=L.tileLayer("https://tile.openweathermap.org/map/temp_new/{z}/{x}/{y}.png?appid=demo",{opacity:.55,tileSize:256,zIndex:450}).addTo(map);
+    radarstate.textContent="Capa de temperatura";
+  }
+}
+function showFrame(i){
+  if(!frames[i])return;
+  frame.value=i;
+  tnow.textContent=new Date(frames[i].time*1000).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})+" · RADAR";
+  if(activeType==="rain"){
+    clearOverlay();
+    activeOverlay=L.tileLayer("https://tilecache.rainviewer.com"+frames[i].path+"/256/{z}/{x}/{y}/2/1_1.png",{opacity:.75,tileSize:256,zIndex:500}).addTo(map);
+  }
+}
 city.addEventListener("keydown",e=>{if(e.key==="Enter")searchCity()});renderFav();searchCity();loadRadar();
 </script>
 </body>
