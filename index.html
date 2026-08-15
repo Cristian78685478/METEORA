@@ -3,153 +3,123 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>METEORA 3D — Cristian Rivera</title>
+<title>METEORA 3D PRO — Cristian Rivera</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
-:root{color-scheme:dark}
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020812;font-family:Inter,system-ui,Arial;color:#eef7ff}
-#app{position:fixed;inset:0}
-#globe{position:absolute;inset:0}
-header{position:absolute;z-index:5;left:18px;right:18px;top:18px;height:70px;border:1px solid #245174;border-radius:18px;background:rgba(4,18,31,.82);backdrop-filter:blur(14px);display:flex;align-items:center;gap:14px;padding:12px 18px;box-shadow:0 12px 40px #0008}
-.logo{font-weight:900;font-size:22px;letter-spacing:.5px}.sub{font-size:12px;color:#8da8bc;margin-top:3px}
-.controls{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}.btn{border:1px solid #2b5878;background:#0a2034;color:#eaf7ff;border-radius:11px;padding:10px 13px;font-weight:800;cursor:pointer}.btn:hover{background:#123451}.btn.active{background:#1a91c7;border-color:#5cd9ff}
-#loading{position:absolute;z-index:4;inset:0;display:grid;place-items:center;pointer-events:none}
-.loader{background:rgba(3,16,28,.88);border:1px solid #285574;border-radius:16px;padding:18px 24px;text-align:center;box-shadow:0 20px 70px #0009}
-.spinner{width:30px;height:30px;margin:0 auto 10px;border:3px solid #214762;border-top-color:#54d9ff;border-radius:50%;animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
-#status{position:absolute;z-index:5;left:22px;bottom:22px;max-width:min(620px,calc(100vw - 44px));padding:12px 15px;border:1px solid #244d69;border-radius:13px;background:rgba(3,17,29,.82);backdrop-filter:blur(12px);font-size:12px;color:#a9c0d0}
-.legend{position:absolute;z-index:5;right:22px;bottom:22px;display:flex;gap:14px;padding:11px 14px;border:1px solid #244d69;border-radius:13px;background:rgba(3,17,29,.82);font-size:12px;color:#aac0d0}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px}
-@media(max-width:700px){header{left:8px;right:8px;top:8px;height:auto;align-items:flex-start}.controls{margin-left:0}.logo{font-size:18px}.sub{display:none}.legend{right:8px;bottom:8px;gap:7px}.btn{padding:8px 9px;font-size:11px}}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#01050b;color:#eef8ff;font-family:Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif}
+#scene,#map{position:fixed;inset:0}#map{display:none}
+header{position:fixed;z-index:20;left:18px;right:18px;top:16px;min-height:72px;border:1px solid #2a5a7d;border-radius:18px;background:rgba(3,15,27,.78);backdrop-filter:blur(16px);display:flex;align-items:center;gap:18px;padding:12px 16px;box-shadow:0 15px 60px #0009}
+.brand{min-width:240px}.title{font-size:23px;font-weight:950;letter-spacing:.4px}.sub{font-size:11px;color:#91aabd;margin-top:3px}
+.controls{display:flex;gap:7px;flex-wrap:wrap;margin-left:auto}.btn{border:1px solid #315f80;background:#092037;color:#eef8ff;border-radius:11px;padding:10px 12px;font-weight:850;cursor:pointer;transition:.18s}.btn:hover{transform:translateY(-1px);background:#123552}.btn.active{background:#118bc1;border-color:#5ddcff;box-shadow:0 0 18px #1cb8ef33}
+.panel{position:fixed;z-index:15;left:20px;bottom:20px;width:min(420px,calc(100vw - 40px));padding:14px 16px;border:1px solid #2b5878;border-radius:15px;background:rgba(3,16,29,.78);backdrop-filter:blur(15px);box-shadow:0 15px 50px #0008}
+.status{font-size:12px;color:#aac0d0}.stats{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}.pill{font-size:11px;border:1px solid #264b65;border-radius:999px;padding:6px 9px;color:#c9dce8;background:#071a2b}
+.legend{position:fixed;z-index:15;right:20px;bottom:20px;padding:11px 13px;border:1px solid #2b5878;border-radius:14px;background:rgba(3,16,29,.78);backdrop-filter:blur(15px);font-size:11px;color:#aac0d0}.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px}
+#loading{position:fixed;z-index:30;inset:0;display:grid;place-items:center;background:#01060d}.loadbox{padding:22px 28px;border:1px solid #2b5878;border-radius:17px;background:#061525;text-align:center;box-shadow:0 30px 90px #000}.spin{width:34px;height:34px;margin:auto auto 11px;border:3px solid #173a53;border-top-color:#55dfff;border-radius:50%;animation:s 1s linear infinite}@keyframes s{to{transform:rotate(360deg)}}
+.leaflet-control-zoom a{background:#071a2b!important;color:#fff!important;border-color:#315f80!important}.leaflet-control-attribution{background:#061525cc!important;color:#9bb2c2!important}
+@media(max-width:760px){header{left:8px;right:8px;top:8px;align-items:flex-start}.brand{min-width:0}.title{font-size:18px}.sub{display:none}.controls{margin-left:0}.btn{padding:8px 9px;font-size:11px}.legend{right:8px;bottom:8px}.panel{left:8px;bottom:8px}}
 </style>
 </head>
 <body>
-<div id="app">
-  <div id="globe"></div>
-  <header>
-    <div><div class="logo">🌍 METEORA 3D</div><div class="sub">Planeta meteorológico · eventos globales · Creado por Cristian Rivera</div></div>
-    <div class="controls">
-      <button class="btn active" id="rotate">⟳ Auto</button>
-      <button class="btn active" id="clouds">☁️ Nubes</button>
-      <button class="btn" id="events">🚨 Eventos</button>
-      <button class="btn" id="city">📍 Madrid</button>
-    </div>
-  </header>
-  <div id="loading"><div class="loader"><div class="spinner"></div><b>Cargando METEORA 3D…</b><div style="font-size:12px;color:#91a9bb;margin-top:6px">Preparando el planeta</div></div></div>
-  <div id="status">Arrastra para girar · rueda para zoom</div>
-  <div class="legend">
-    <span><i class="dot" style="background:#ff5c78"></i>Alto</span>
-    <span><i class="dot" style="background:#ffad55"></i>Medio</span>
-    <span><i class="dot" style="background:#ffe27a"></i>Precaución</span>
-    <span><i class="dot" style="background:#55dfff"></i>METEO</span>
+<div id="scene"></div><div id="map"></div>
+<header>
+  <div class="brand"><div class="title">🌍 METEORA 3D PRO</div><div class="sub">Planeta meteorológico · máxima calidad · Creado por Cristian Rivera</div></div>
+  <div class="controls">
+    <button class="btn active" id="b3d">🌐 3D</button>
+    <button class="btn" id="b2d">🗺️ 2D</button>
+    <button class="btn active" id="bauto">⟳ Auto</button>
+    <button class="btn active" id="bcloud">☁️ Nubes</button>
+    <button class="btn" id="bevents">🚨 Eventos</button>
+    <button class="btn" id="bhome">⌂ Vista</button>
   </div>
-</div>
+</header>
+<div class="panel"><div id="status" class="status">Arrastra para girar · rueda para acercar/alejar</div><div class="stats"><span class="pill">🔍 Zoom: <b id="zoom">1.0×</b></span><span class="pill">🛰️ Globo 3D</span><span class="pill">⚡ Alta calidad</span></div></div>
+<div class="legend"><span><i class="dot" style="background:#ff5877"></i>Alto</span> &nbsp; <span><i class="dot" style="background:#ffad55"></i>Medio</span> &nbsp; <span><i class="dot" style="background:#ffe37c"></i>Precaución</span> &nbsp; <span><i class="dot" style="background:#55dfff"></i>METEO</span></div>
+<div id="loading"><div class="loadbox"><div class="spin"></div><b>Inicializando METEORA 3D PRO…</b><div style="font-size:12px;color:#91a9bb;margin-top:7px">Cargando planeta, atmósfera y texturas</div></div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-(() => {
-  const loading=document.getElementById('loading'), status=document.getElementById('status');
-  if(!window.THREE){loading.innerHTML='<div class="loader">⚠️ No se pudo cargar el motor 3D. Comprueba la conexión y recarga.</div>';return;}
-  const THREE=window.THREE;
-  const root=document.getElementById('globe');
-  const scene=new THREE.Scene();
-  scene.background=new THREE.Color(0x020812);
-  const camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,.1,100);
-  camera.position.set(0,0,3.25);
-  const renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});
-  renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));
-  renderer.setSize(innerWidth,innerHeight);
-  root.appendChild(renderer.domElement);
+(()=> {
+const $=id=>document.getElementById(id), sceneEl=$('scene'), mapEl=$('map'), status=$('status'), zoomEl=$('zoom');
+let map, markersLayer, is3D=true, auto=true, cloudsOn=true, eventsOn=false;
 
-  scene.add(new THREE.AmbientLight(0x9ecfff,1.0));
-  const sun=new THREE.DirectionalLight(0xffffff,2.2);sun.position.set(5,3,5);scene.add(sun);
+function setStatus(t){status.textContent=t}
+function btn(id,on){$(id).classList.toggle('active',on)}
 
-  const group=new THREE.Group();scene.add(group);
+if(!window.THREE){$('loading').innerHTML='<div class="loadbox">⚠️ No se pudo cargar el motor 3D.</div>';return}
+const T=THREE, scene=new T.Scene(); scene.background=new T.Color(0x01050b);
+const camera=new T.PerspectiveCamera(38,innerWidth/innerHeight,.03,100);
+const renderer=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2.25)); renderer.setSize(innerWidth,innerHeight); renderer.outputEncoding=T.sRGBEncoding;
+sceneEl.appendChild(renderer.domElement);
 
-  const loader=new THREE.TextureLoader();
-  const earthTex=loader.load(
-    'https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg',
-    undefined,undefined,
-    ()=>status.textContent='No se pudo cargar la textura terrestre. El globo seguirá funcionando.'
-  );
-  const earth=new THREE.Mesh(
-    new THREE.SphereGeometry(1,96,96),
-    new THREE.MeshPhongMaterial({map:earthTex,shininess:8})
-  );
-  group.add(earth);
+scene.add(new T.AmbientLight(0x9fcfff,1.15));
+const sun=new T.DirectionalLight(0xffffff,2.7);sun.position.set(5,3,6);scene.add(sun);
+const fill=new T.DirectionalLight(0x4e8cff,.35);fill.position.set(-5,-2,-4);scene.add(fill);
 
-  const clouds=loader.load('https://threejs.org/examples/textures/planets/earth_clouds_1024.png');
-  const cloudMesh=new THREE.Mesh(
-    new THREE.SphereGeometry(1.018,96,96),
-    new THREE.MeshPhongMaterial({map:clouds,transparent:true,opacity:.55,depthWrite:false})
-  );
-  group.add(cloudMesh);
+const world=new T.Group();scene.add(world);
+const loader=new T.TextureLoader(); loader.crossOrigin='anonymous';
+const earthTex=loader.load('https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg');
+const normalTex=loader.load('https://threejs.org/examples/textures/planets/earth_normal_2048.jpg');
+const specTex=loader.load('https://threejs.org/examples/textures/planets/earth_specular_2048.jpg');
+const nightTex=loader.load('https://threejs.org/examples/textures/planets/earth_lights_2048.png');
 
-  const atmosphere=new THREE.Mesh(
-    new THREE.SphereGeometry(1.045,96,96),
-    new THREE.MeshBasicMaterial({color:0x4bcfff,transparent:true,opacity:.10,side:THREE.BackSide})
-  );
-  group.add(atmosphere);
+const earth=new T.Mesh(new T.SphereGeometry(1,160,160),new T.MeshPhongMaterial({map:earthTex,normalMap:normalTex,specularMap:specTex,specular:new T.Color(0x335577),shininess:16}));
+world.add(earth);
 
-  const eventsGroup=new THREE.Group();group.add(eventsGroup);
-  function point(lat,lon,r=1.04){
-    const p=lat*Math.PI/180,l=lon*Math.PI/180;
-    return new THREE.Vector3(
-      r*Math.cos(p)*Math.cos(l),
-      r*Math.sin(p),
-      -r*Math.cos(p)*Math.sin(l)
-    );
-  }
-  function marker(lat,lon,color,size=.026){
-    const m=new THREE.Mesh(new THREE.SphereGeometry(size,12,12),new THREE.MeshBasicMaterial({color}));
-    m.position.copy(point(lat,lon));eventsGroup.add(m);
-    return m;
-  }
-  marker(40.4168,-3.7038,0x55dfff,.035);
+const night=new T.Mesh(new T.SphereGeometry(1.001,160,160),new T.MeshBasicMaterial({map:nightTex,transparent:true,blending:T.AdditiveBlending,opacity:.48}));
+world.add(night);
 
-  let auto=true, showClouds=true, showEvents=false;
-  document.getElementById('rotate').onclick=()=>{auto=!auto;document.getElementById('rotate').classList.toggle('active',auto)};
-  document.getElementById('clouds').onclick=()=>{showClouds=!showClouds;cloudMesh.visible=showClouds;document.getElementById('clouds').classList.toggle('active',showClouds)};
-  document.getElementById('city').onclick=()=>{status.textContent='📍 Madrid · marcador meteorológico';camera.position.set(0,0,2.75)};
-  document.getElementById('events').onclick=async()=>{
-    showEvents=!showEvents;
-    document.getElementById('events').classList.toggle('active',showEvents);
-    eventsGroup.visible=showEvents;
-    if(showEvents) await loadEvents();
-    status.textContent=showEvents?'🚨 Eventos globales activados · GDACS':'Eventos globales ocultos';
-  };
+const cloudTex=loader.load('https://threejs.org/examples/textures/planets/earth_clouds_1024.png');
+const cloud=new T.Mesh(new T.SphereGeometry(1.018,128,128),new T.MeshPhongMaterial({map:cloudTex,transparent:true,opacity:.56,depthWrite:false}));
+world.add(cloud);
 
-  async function loadEvents(){
-    try{
-      const r=await fetch('/api/events',{cache:'no-store'});
-      if(!r.ok) throw new Error();
-      const data=await r.json();
-      const colors={WF:0xff5c78,FL:0x55dfff,TC:0xffad55,EQ:0xffe27a,VO:0xff6bff,DR:0xc58cff};
-      for(const e of (data.events||[]).slice(0,220)){
-        if(Number.isFinite(e.lat)&&Number.isFinite(e.lon)) marker(e.lat,e.lon,colors[e.type]||0xffffff,.018);
-      }
-      status.textContent=`🚨 ${data.events?.length||0} eventos recibidos · GDACS`;
-    }catch(e){status.textContent='⚠️ No se pudieron cargar los eventos ahora mismo.'}
-  }
+const atmo=new T.Mesh(new T.SphereGeometry(1.065,128,128),new T.MeshBasicMaterial({color:0x3bcaff,transparent:true,opacity:.13,side:T.BackSide,blending:T.AdditiveBlending}));
+world.add(atmo);
+const atmo2=new T.Mesh(new T.SphereGeometry(1.035,128,128),new T.MeshBasicMaterial({color:0x75dfff,transparent:true,opacity:.055,side:T.BackSide,blending:T.AdditiveBlending}));
+world.add(atmo2);
 
-  let dragging=false,lastX=0,lastY=0,rx=0,ry=0,dist=3.25;
-  renderer.domElement.addEventListener('pointerdown',e=>{dragging=true;lastX=e.clientX;lastY=e.clientY});
-  window.addEventListener('pointerup',()=>dragging=false);
-  window.addEventListener('pointermove',e=>{
-    if(!dragging)return;
-    ry+=(e.clientX-lastX)*.006;rx+=(e.clientY-lastY)*.006;rx=Math.max(-1.35,Math.min(1.35,rx));
-    lastX=e.clientX;lastY=e.clientY;
-  });
-  renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();dist=Math.max(1.55,Math.min(6,dist+e.deltaY*.0025))},{passive:false});
+const starsGeo=new T.BufferGeometry(), starPos=[];
+for(let i=0;i<4200;i++){const r=12+Math.random()*28,a=Math.random()*Math.PI*2,b=Math.acos(2*Math.random()-1);starPos.push(r*Math.sin(b)*Math.cos(a),r*Math.cos(b),r*Math.sin(b)*Math.sin(a))}
+starsGeo.setAttribute('position',new T.Float32BufferAttribute(starPos,3));
+scene.add(new T.Points(starsGeo,new T.PointsMaterial({color:0xb9dcff,size:.045,sizeAttenuation:true,transparent:true,opacity:.75})));
 
-  function animate(){
-    requestAnimationFrame(animate);
-    if(auto) ry+=.0018;
-    group.rotation.y=ry;group.rotation.x=rx;
-    cloudMesh.rotation.y+=.0005;
-    camera.position.z+=(dist-camera.position.z)*.08;
-    renderer.render(scene,camera);
-  }
-  addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
-  loading.style.display='none';
-  animate();
+const eventsGroup=new T.Group();world.add(eventsGroup);eventsGroup.visible=false;
+const eventColors={WF:0xff5877,FL:0x55dfff,TC:0xffad55,EQ:0xffe37c,VO:0x71ff9c,DR:0xc28cff};
+function pos(lat,lon,r=1.045){const p=lat*Math.PI/180,l=lon*Math.PI/180;return new T.Vector3(r*Math.cos(p)*Math.cos(l),r*Math.sin(p),-r*Math.cos(p)*Math.sin(l))}
+function marker(e){if(!Number.isFinite(e.lat)||!Number.isFinite(e.lon))return;const m=new T.Mesh(new T.SphereGeometry(.014,12,12),new T.MeshBasicMaterial({color:eventColors[e.type]||0xffffff}));m.position.copy(pos(e.lat,e.lon));eventsGroup.add(m)}
+const madrid=new T.Mesh(new T.SphereGeometry(.026,16,16),new T.MeshBasicMaterial({color:0x55dfff}));
+madrid.position.copy(pos(40.4168,-3.7038,1.052));world.add(madrid);
+
+let dist=3.0,rx=0,ry=0,drag=false,lx=0,ly=0;
+camera.position.z=dist;
+renderer.domElement.addEventListener('pointerdown',e=>{drag=true;lx=e.clientX;ly=e.clientY;renderer.domElement.setPointerCapture(e.pointerId)});
+renderer.domElement.addEventListener('pointermove',e=>{if(!drag)return;ry+=(e.clientX-lx)*.006;rx+=(e.clientY-ly)*.005;rx=Math.max(-1.48,Math.min(1.48,rx));lx=e.clientX;ly=e.clientY});
+renderer.domElement.addEventListener('pointerup',()=>drag=false);
+renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();dist=Math.max(1.12,Math.min(10,dist*Math.exp(e.deltaY*.00085)));zoomEl.textContent=(3/dist).toFixed(1)+'×'},{passive:false});
+
+$('bauto').onclick=()=>{auto=!auto;btn('bauto',auto)};
+$('bcloud').onclick=()=>{cloudsOn=!cloudsOn;cloud.visible=cloudsOn;btn('bcloud',cloudsOn)};
+$('bhome').onclick=()=>{dist=3;rx=0;ry=0;zoomEl.textContent='1.0×';setStatus('Vista global restaurada')};
+$('b3d').onclick=()=>show3D();
+$('b2d').onclick=()=>show2D();
+$('bevents').onclick=async()=>{eventsOn=!eventsOn;eventsGroup.visible=eventsOn;btn('bevents',eventsOn);if(eventsOn)await loadEvents();else setStatus('Eventos ocultos')};
+
+async function loadEvents(){
+ try{const r=await fetch('/api/events',{cache:'no-store'});if(!r.ok)throw 0;const d=await r.json();for(const e of (d.events||[]).slice(0,260))marker(e);setStatus(`🚨 ${(d.events||[]).length} eventos globales · GDACS`)}catch{setStatus('⚠️ Eventos no disponibles ahora mismo')}}
+function show3D(){is3D=true;sceneEl.style.display='block';mapEl.style.display='none';$('b3d').classList.add('active');$('b2d').classList.remove('active');setStatus('Arrastra para girar · rueda para acercar/alejar')}
+function show2D(){is3D=false;sceneEl.style.display='none';mapEl.style.display='block';$('b3d').classList.remove('active');$('b2d').classList.add('active');initMap();setStatus('Mapa 2D · puedes usar zoom y arrastrar')}
+
+function initMap(){
+ if(map)return;
+ map=L.map('map',{zoomControl:true,worldCopyJump:true}).setView([40.4168,-3.7038],5);
+ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+ L.marker([40.4168,-3.7038]).addTo(map).bindPopup('<b>📍 Madrid</b><br>METEORA');
+ markersLayer=L.layerGroup().addTo(map);
+}
+function animate(){requestAnimationFrame(animate);if(auto&&!drag)ry+=.00145;world.rotation.y=ry;world.rotation.x=rx;cloud.rotation.y+=.00055;camera.position.z+=(dist-camera.position.z)*.09;renderer.render(scene,camera)}
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+$('loading').style.display='none'; animate();
 })();
 </script>
 </body>
