@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#050914"><title>METEORA V3.1 ULTRA FAST</title>
+<meta name="theme-color" content="#050914"><title>METEORA V3.2 FIX</title>
 <link rel="preconnect" href="https://unpkg.com"><link rel="preconnect" href="https://api.open-meteo.com">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
@@ -32,13 +32,13 @@ main{max-width:1580px;margin:auto;padding:14px}.grid{display:grid;grid-template-
 <div class="maptop"><div class="layers"><button class="layer active" onclick="base('normal',this)">🗺️ Mapa</button><button class="layer" onclick="base('sat',this)">🛰️ Satélite</button><button class="layer" onclick="base('dark',this)">🌙 Oscuro</button><button class="layer" onclick="toggleRadar(this)">🌧️ Radar</button><button class="layer" onclick="toggleEvents(this)">🚨 Alertas</button></div><div class="mapbuttons"><button class="layer" onclick="locate()">📍</button><button class="layer" onclick="map.setZoom(map.getZoom()+1)">＋</button><button class="layer" onclick="map.setZoom(map.getZoom()-1)">−</button></div></div>
 <div class="timeline"><input id="frame" type="range" min="0" max="0" value="0" oninput="showFrame(+this.value)"><div class="times"><span id="old">--</span><b id="now">RADAR</b><span id="new">--</span></div><div class="status" id="radarStatus">Radar se cargará al activarlo</div></div></div>
 <div class="bottom"><section class="card wide"><h2>⏱️ Próximas 24 horas</h2><div class="hours" id="hours"></div></section><section class="card wide"><h2>📊 Tendencia</h2><div class="chart"><canvas id="chart"></canvas></div></section></div>
-</section></div><div class="footer">METEORA V3.1 ULTRA FAST · Creado por <b>Cristian Rivera</b> · Open-Meteo · RainViewer · GDACS · OpenStreetMap / Esri</div></main>
+</section></div><div class="footer">METEORA V3.2 FIX · Creado por <b>Cristian Rivera</b> · Open-Meteo · RainViewer · GDACS · OpenStreetMap / Esri</div></main>
 <div id="toast" class="toast"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
 <script>
 const WX={0:["Despejado","☀️"],1:["Mayormente despejado","🌤️"],2:["Parcialmente nublado","⛅"],3:["Nublado","☁️"],45:["Niebla","🌫️"],48:["Niebla","🌫️"],51:["Llovizna","🌦️"],53:["Llovizna","🌦️"],55:["Llovizna intensa","🌧️"],61:["Lluvia ligera","🌦️"],63:["Lluvia","🌧️"],65:["Lluvia intensa","🌧️"],71:["Nieve","🌨️"],73:["Nieve","❄️"],75:["Nieve intensa","❄️"],80:["Chubascos","🌦️"],81:["Chubascos","🌧️"],82:["Chubascos fuertes","⛈️"],95:["Tormenta","⛈️"],96:["Tormenta con granizo","⛈️"],99:["Tormenta fuerte","⛈️"]};
 const E={WF:["🔥","Incendio"],FL:["🌊","Inundación"],TC:["🌀","Ciclón"],EQ:["🌎","Terremoto"],VO:["🌋","Volcán"],DR:["🏜️","Sequía"]};
-let metric=true,D=null,frames=[],radar=null,events=[],eventsLayer,markers=[],map,osm,sat,dark,chart=null,eventsVisible=true,radarVisible=false;
+let metric=true,D=null,frames=[],radar=null,events=[],unavailable=[],eventsLayer,markers=[],map,osm,sat,dark,chart=null,eventsVisible=true,radarVisible=false;
 const $=id=>document.getElementById(id),toast=t=>{$("toast").textContent=t;$("toast").style.display="block";setTimeout(()=>$("toast").style.display="none",2200)},temp=v=>Math.round(metric?v:v*9/5+32)+"°";
 function toggleUnit(){metric=!metric;$("unit").textContent=metric?"°C":"°F";if(D)render(D)}
 function initMap(){map=L.map("map").setView([40.4168,-3.7038],6);osm=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);sat=L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:19,attribution:"Esri"});dark=L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",{maxZoom:19,attribution:"© OpenStreetMap © CARTO"});eventsLayer=L.layerGroup().addTo(map)}
@@ -51,13 +51,53 @@ function renderHours(d){let i=Math.max(0,d.hourly.time.findIndex(t=>new Date(t)>
 function loadChart(d){if(!window.Chart){let s=document.createElement("script");s.src="https://cdn.jsdelivr.net/npm/chart.js";s.onload=()=>loadChart(d);document.head.appendChild(s);return}if(chart)chart.destroy();let i=Math.max(0,d.hourly.time.findIndex(t=>new Date(t)>=new Date())),labels=d.hourly.time.slice(i,i+24).map(t=>new Date(t).toLocaleTimeString("es-ES",{hour:"2-digit"}));chart=new Chart($("chart"),{type:"line",data:{labels,datasets:[{label:"Temperatura",data:d.hourly.temperature_2m.slice(i,i+24),borderWidth:3,tension:.35,pointRadius:1},{label:"Lluvia %",data:d.hourly.precipitation_probability.slice(i,i+24),borderWidth:2,tension:.3,pointRadius:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:"#b8c9d9"}}},scales:{x:{ticks:{color:"#8099b0"}},y:{ticks:{color:"#8099b0"}}}}})}
 async function loadRadar(){try{let r=await fetch("/api/radar",{cache:"no-store"}),d=await r.json();frames=d.radar?.past||[];$("frame").max=Math.max(0,frames.length-1);if(frames.length){$("old").textContent=new Date(frames[0].time*1000).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});$("new").textContent=new Date(frames.at(-1).time*1000).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});showFrame(frames.length-1)}$("radarStatus").textContent=frames.length?"Radar preparado · se muestra al activarlo":"Radar sin datos"}catch(e){$("radarStatus").textContent="Radar no disponible temporalmente"}}
 function showFrame(i){if(!frames[i]||!map)return;$("frame").value=i;$("now").textContent=new Date(frames[i].time*1000).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})+" · RADAR";if(radar)map.removeLayer(radar);radar=L.tileLayer("https://tilecache.rainviewer.com"+frames[i].path+"/256/{z}/{x}/{y}/2/1_1.png",{opacity:.72,maxZoom:7,zIndex:700}).addTo(map);radarVisible=true}
-function toggleRadar(btn){if(!frames.length){loadRadar().then(()=>toggleRadar(btn));return}if(radarVisible){if(radar)map.removeLayer(radar);radarVisible=false;btn.classList.remove("active")}else{showFrame(+$("frame").value||frames.length-1);btn.classList.add("active")}}
-function base(t,b){document.querySelectorAll(".layer").forEach(x=>x.classList.remove("active"));b.classList.add("active");[osm,sat,dark].forEach(x=>map.removeLayer(x));(t==="normal"?osm:t==="sat"?sat:dark).addTo(map);if(radarVisible&&radar)radar.bringToFront()}
-async function loadEvents(){try{let r=await fetch("/api/events",{cache:"no-store"});events=await r.json();renderEvents("all")}catch(e){$("alerts").innerHTML='<div class="muted">Emergencias no disponibles ahora. El tiempo sigue funcionando.</div>'}}
-function renderEvents(f){eventsLayer.clearLayers();markers=[];let a=f==="all"?events:events.filter(x=>x.type===f);$("alerts").innerHTML=a.slice(0,60).map((x,i)=>`<div class="alert" onclick="focusEvent(${i})"><b>${E[x.type]?.[0]||"⚠️"} ${x.name}</b><small>${E[x.type]?.[1]||x.type} · ${x.country||"Global"}</small><span class="tag ${x.level}">${x.level.toUpperCase()}</span></div>`).join("")||'<div class="muted">No hay eventos.</div>';a.forEach((x,i)=>{if(!Number.isFinite(x.lat)||!Number.isFinite(x.lon))return;let colors={red:"#ff5d73",orange:"#ff9d4d",yellow:"#ffd166",green:"#5de3a0"};let m=L.circleMarker([x.lat,x.lon],{radius:7,color:colors[x.level],fillColor:colors[x.level],fillOpacity:.8,weight:2}).bindPopup(`<b>${E[x.type]?.[0]||"⚠️"} ${x.name}</b><br>${E[x.type]?.[1]||x.type}<br>Nivel: ${x.level}`);m.addTo(eventsLayer);markers.push(m)})}
+async function toggleRadar(btn){
+ if(!frames.length) await loadRadar();
+ if(!frames.length){toast("Radar no disponible temporalmente");return}
+ radarVisible=!radarVisible;
+ if(radarVisible){showFrame(+$("frame").value||frames.length-1);btn.classList.add("active");$("radarStatus").textContent="Radar activo · últimas 2 horas"}
+ else{if(radar)map.removeLayer(radar);btn.classList.remove("active");$("radarStatus").textContent="Radar oculto"}
+}
+function base(t,b){
+ document.querySelectorAll(".layer[data-base]").forEach(x=>x.classList.toggle("active",x===b));
+ [osm,sat,dark].forEach(x=>map.removeLayer(x));
+ (t==="normal"?osm:t==="sat"?sat:dark).addTo(map);
+ if(radarVisible&&radar)radar.bringToFront();
+}
+async function loadEvents(){
+ try{
+  const r=await fetch("/api/events",{cache:"no-store"}); if(!r.ok) throw Error();
+  const d=await r.json(); events=Array.isArray(d.events)?d.events:[]; unavailable=Array.isArray(d.unavailable)?d.unavailable:[]; renderEvents("all");
+ }catch{
+  events=null; unavailable=["WF","FL","TC","EQ","VO","DR"];
+  $("alerts").innerHTML='<div class="muted">⚠️ Fuente de emergencias temporalmente no disponible. Esto no significa que no haya incendios.</div>';
+ }
+}
+function renderEvents(f){
+ eventsLayer.clearLayers(); markers=[];
+ if(!Array.isArray(events)){ $("alerts").innerHTML='<div class="muted">⚠️ Fuente de emergencias temporalmente no disponible.</div>'; return; }
+ const a=f==="all"?events:events.filter(x=>x.type===f);
+ if(!a.length){
+  $("alerts").innerHTML=unavailable.includes(f)
+   ? `<div class="muted">⚠️ La fuente de ${E[f]?.[1]||f} no está disponible temporalmente. No se puede concluir que no haya eventos.</div>`
+   : `<div class="muted">No hay eventos activos reportados por GDACS para ${f==="all"?"estas categorías":E[f]?.[1]||f}.</div>`;
+ }else{
+  $("alerts").innerHTML=a.slice(0,60).map((x,i)=>`<div class="alert" onclick="focusEvent(${i})"><b>${E[x.type]?.[0]||"⚠️"} ${x.name}</b><small>${E[x.type]?.[1]||x.type} · ${x.country||"Global"}</small><span class="tag ${x.level}">${x.level.toUpperCase()}</span></div>`).join("");
+ }
+ a.forEach((x,i)=>{if(!Number.isFinite(x.lat)||!Number.isFinite(x.lon))return;const c={red:"#ff5d73",orange:"#ff9d4d",yellow:"#ffd166",green:"#5de3a0"}[x.level]||"#55d8ff";const m=L.circleMarker([x.lat,x.lon],{radius:7,color:c,fillColor:c,fillOpacity:.8,weight:2}).bindPopup(`<b>${E[x.type]?.[0]||"⚠️"} ${x.name}</b><br>${E[x.type]?.[1]||x.type}<br>Nivel: ${x.level}<br><small>Fuente: GDACS</small>`);m.addTo(eventsLayer);markers.push(m)});
+}
+function filterEvents(t,b){
+ document.querySelectorAll("#filters button").forEach(x=>x.classList.toggle("active",x===b));
+ if(!Array.isArray(events)){loadEvents().then(()=>Array.isArray(events)&&renderEvents(t));return}
+ renderEvents(t);
+}
 function focusEvent(i){if(markers[i]){map.setView(markers[i].getLatLng(),8);markers[i].openPopup()}}
 function filterEvents(t,b){document.querySelectorAll("#filters button").forEach(x=>x.classList.remove("active"));b.classList.add("active");renderEvents(t)}
-function toggleEvents(b){eventsVisible=!eventsVisible;if(eventsVisible){eventsLayer.addTo(map);b.classList.add("active")}else{map.removeLayer(eventsLayer);b.classList.remove("active")}}
+function toggleEvents(b){
+ eventsVisible=!eventsVisible;
+ if(eventsVisible){eventsLayer.addTo(map);b.classList.add("active")}
+ else{map.removeLayer(eventsLayer);b.classList.remove("active")}
+}
 function locate(){navigator.geolocation?.getCurrentPosition(p=>getWeather(p.coords.latitude,p.coords.longitude,"Mi ubicación"),()=>toast("No se pudo obtener la ubicación"))}
 async function refresh(){await getWeather(D.lat,D.lon,D.name);loadEvents();if(radarVisible)loadRadar();toast("Actualizado")}
 window.addEventListener("load",()=>{initMap();let last=localStorage.getItem("meteora_last");if(last){try{let x=JSON.parse(last);getWeather(x.lat,x.lon,x.name)}catch{searchCity()}}else searchCity();loadEvents()});
